@@ -1,0 +1,140 @@
+services:
+
+  # ─── Application (PHP-FPM) ───────────────────────────────────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: mockwave_app
+    restart: unless-stopped
+    working_dir: /var/www
+    volumes:
+      - .:/var/www
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      # ── Xdebug ──────────────────────────────────────────────────────────────
+      # Change to "debug" or "coverage" to activate; "off" = zero overhead
+      - XDEBUG_MODE=${XDEBUG_MODE:-off}
+      - XDEBUG_CLIENT_HOST=${XDEBUG_CLIENT_HOST:-host.docker.internal}
+      - XDEBUG_CLIENT_PORT=${XDEBUG_CLIENT_PORT:-9003}
+      - XDEBUG_IDEKEY=${XDEBUG_IDEKEY:-PHPSTORM}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mockwave
+
+  # ─── Nginx ───────────────────────────────────────────────────────────────────
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: mockwave_nginx
+    restart: unless-stopped
+    ports:
+      - "${APP_PORT:-8080}:80"
+    volumes:
+      - .:/var/www:ro
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - mockwave
+
+  # ─── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: mockwave_postgres
+    restart: unless-stopped
+    ports:
+      - "${DB_PORT_FORWARD:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-mockwave}
+      POSTGRES_USER: ${DB_USERNAME:-mockwave}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-secret}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-mockwave} -d ${DB_DATABASE:-mockwave}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - mockwave
+
+  # ─── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: mockwave_redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT_FORWARD:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - mockwave
+
+  # ─── Queue Worker ────────────────────────────────────────────────────────────
+  queue:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: mockwave_queue
+    restart: unless-stopped
+    working_dir: /var/www
+    command: php artisan queue:work redis --sleep=3 --tries=3 --max-time=3600
+    volumes:
+      - .:/var/www
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      # Xdebug обычно не нужен в queue worker — держим выключенным
+      - XDEBUG_MODE=off
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mockwave
+
+  # ─── Scheduler (runs schedule:run every minute) ───────────────────────────────
+  scheduler:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dev
+    container_name: mockwave_scheduler
+    restart: unless-stopped
+    working_dir: /var/www
+    command: ["/bin/sh", "/usr/local/bin/scheduler.sh"]
+    volumes:
+      - .:/var/www
+      - ./docker/php/php.ini:/usr/local/etc/php/conf.d/custom.ini:ro
+      - ./docker/scheduler/scheduler.sh:/usr/local/bin/scheduler.sh:ro
+    environment:
+      - APP_ENV=${APP_ENV:-local}
+      - XDEBUG_MODE=off
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mockwave
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  mockwave:
+    driver: bridge

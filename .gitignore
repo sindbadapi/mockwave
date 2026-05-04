@@ -1,0 +1,47 @@
+*.log
+*.DS_Store
+Thumbs.db
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+!.env.prod.example
+/auth.json
+/storage/*.key
+
+# IDE and editor
+/.fleet
+/.idea
+/.nova
+/.vscode
+/.zed
+.phpactor.json
+
+# PHP and Laravel caches
+/.phpunit.cache
+.phpunit.result.cache
+/storage/pail
+/storage/phpstan
+
+# Dependencies and generated artifacts
+/node_modules
+/vendor
+/public/build
+/public/hot
+/public/storage
+/storage/logs/*.log
+
+# Local AI agent metadata
+/.agents
+/.ai
+/.claude/settings.local.json
+/.gemini
+/.junit
+/.local
+_ide_helper.php
+Homestead.json
+Homestead.yaml
+
+
+docker-compose.override.yml
