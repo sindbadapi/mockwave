@@ -26,6 +26,12 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - eslint (ESLINT) - v9
 - tailwindcss (TAILWINDCSS) - v4
 
+## Project Agent Source of Truth
+
+- Before making changes, read `CLAUDE.md` in the project root and follow it as project-specific source of truth for architecture, workflows, and conventions.
+- Always activate and use relevant skills from `.claude/skills/**` for the domain you are touching (Laravel backend, MCP, Inertia React, Tailwind).
+- If `AGENTS.md` and `CLAUDE.md` conflict, prefer `CLAUDE.md` for this repository.
+
 ## Skills Activation
 
 This project has domain-specific skills available in `**/skills/**`. You MUST activate the relevant skill whenever you work in that domain—don't wait until you're stuck.
