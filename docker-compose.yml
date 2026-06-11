@@ -20,6 +20,8 @@ services:
       - XDEBUG_CLIENT_HOST=${XDEBUG_CLIENT_HOST:-host.docker.internal}
       - XDEBUG_CLIENT_PORT=${XDEBUG_CLIENT_PORT:-9003}
       - XDEBUG_IDEKEY=${XDEBUG_IDEKEY:-PHPSTORM}
+    ports:
+      - "${VITE_PORT:-5173}:5173"
     depends_on:
       postgres:
         condition: service_healthy
