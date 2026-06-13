@@ -17,10 +17,10 @@ class DatabaseSeeder extends Seeder
     {
         // ── Admin user ────────────────────────────────────────────────────────
         User::firstOrCreate(
-            ['email' => env('ADMIN_EMAIL', 'admin@mockwave.local')],
+            ['email' => config('mockwave.admin.email')],
             [
                 'name' => 'Admin',
-                'password' => Hash::make(env('ADMIN_PASSWORD', 'password')),
+                'password' => Hash::make(config('mockwave.admin.password')),
                 'role' => UserRole::Admin,
             ],
         );
