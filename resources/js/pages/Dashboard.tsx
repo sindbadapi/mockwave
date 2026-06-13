@@ -1,26 +1,40 @@
-import AuthenticatedLayout from '../layouts/AuthenticatedLayout';
-import { Head } from '@inertiajs/react';
+import AppLayout from '@/Components/layout/AppLayout'
+import { Head, Link } from '@inertiajs/react'
+import { Activity, Calendar, Database, GitBranch } from 'lucide-react'
 
-export default function Dashboard() {
+interface Props {
+    stats: {
+        services: number
+        endpoints: number
+        logs_today: number
+        webhooks: number
+    }
+}
+
+const CARDS = [
+    { key: 'services',   label: 'Services',        icon: Database,  href: '/services'  },
+    { key: 'endpoints',  label: 'Endpoints',       icon: GitBranch, href: '/endpoints' },
+    { key: 'logs_today', label: 'Requests today',  icon: Activity,  href: '/logs'      },
+    { key: 'webhooks',   label: 'Active webhooks', icon: Calendar,  href: '/scheduler' },
+] as const
+
+export default function Dashboard({ stats }: Props) {
     return (
-        <AuthenticatedLayout
-            header={
-                <h2 className="text-xl font-semibold leading-tight text-gray-800">
-                    Dashboard
-                </h2>
-            }
-        >
+        <AppLayout title="Dashboard">
             <Head title="Dashboard" />
 
-            <div className="py-12">
-                <div className="mx-auto max-w-7xl sm:px-6 lg:px-8">
-                    <div className="overflow-hidden bg-white shadow-sm sm:rounded-lg">
-                        <div className="p-6 text-gray-900">
-                            You're logged in!
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {CARDS.map(({ key, label, icon: Icon, href }) => (
+                    <Link key={key} href={href}
+                        className="rounded-xl border border-gray-200 bg-white p-5 transition-colors hover:border-wave-300">
+                        <div className="flex items-center justify-between">
+                            <span className="text-sm text-gray-500">{label}</span>
+                            <Icon className="h-5 w-5 text-wave-500" />
                         </div>
-                    </div>
-                </div>
+                        <p className="mt-2 text-3xl font-semibold text-gray-900">{stats[key]}</p>
+                    </Link>
+                ))}
             </div>
-        </AuthenticatedLayout>
-    );
+        </AppLayout>
+    )
 }

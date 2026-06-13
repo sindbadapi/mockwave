@@ -60,10 +60,10 @@ fresh: ## Drop all tables and re-migrate + seed
 
 # ── Testing ───────────────────────────────────────────────────────────────────
 test: ## Run PHPUnit test suite
-	$(DC) exec app php artisan test
+	$(DC) exec -e APP_ENV=testing app php artisan test
 
 test-filter: ## Run tests matching FILTER=<name>
-	$(DC) exec app php artisan test --filter=$(FILTER)
+	$(DC) exec -e APP_ENV=testing app php artisan test --filter=$(FILTER)
 
 # ── Code quality ──────────────────────────────────────────────────────────────
 lint: ## Run Laravel Pint (PHP) + ESLint (JS/TS)

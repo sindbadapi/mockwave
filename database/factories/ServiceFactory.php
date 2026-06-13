@@ -18,7 +18,12 @@ class ServiceFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->unique()->company(),
+            'slug' => fake()->unique()->slug(2),
+            'base_url' => 'https://'.fake()->domainName(),
+            'description' => fake()->sentence(),
+            'mode' => 'mock',
+            'is_active' => true,
         ];
     }
 }

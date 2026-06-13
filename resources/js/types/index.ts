@@ -3,6 +3,7 @@
 export type ServiceMode = 'mock' | 'proxy'
 export type HttpMethod  = 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE' | 'HEAD' | 'OPTIONS' | 'ANY'
 export type LogMode     = 'mock' | 'proxy' | 'not_found'
+export type UserRole    = 'admin' | 'user'
 
 export interface Service {
     id:              number
@@ -104,7 +105,7 @@ export interface PaginatedResponse<T> {
 
 export interface SharedProps {
     auth: {
-        user: { id: number; name: string; email: string; email_verified_at: string | null } | null
+        user: { id: number; name: string; email: string; email_verified_at: string | null; role: UserRole } | null
     }
     flash: {
         success: string | null

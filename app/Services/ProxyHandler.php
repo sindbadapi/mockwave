@@ -4,71 +4,58 @@ namespace App\Services;
 
 use App\Models\Endpoint;
 use App\Services\Contracts\RequestHandlerInterface;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ConnectException;
-use GuzzleHttp\Exception\RequestException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
 use Symfony\Component\HttpFoundation\Response;
 
 class ProxyHandler implements RequestHandlerInterface
 {
-    public function __construct(private readonly Client $httpClient) {}
-
     public function handle(Request $request, Endpoint $endpoint): Response
     {
-        $targetUrl = $this->resolveTargetUrl($request, $endpoint);
+        $targetUrl = $this->resolveTargetUrl($endpoint);
 
-        $options = [
-            'timeout' => config('gateway.timeout_seconds', 30),
-            'allow_redirects' => true,
-            'http_errors' => false, // we handle non-2xx ourselves
-            'headers' => $this->forwardHeaders($request),
-            'query' => $request->query->all(),
-        ];
+        $pending = Http::withHeaders($this->forwardHeaders($request))
+            ->withQueryParameters($request->query->all())
+            ->timeout(config('gateway.timeout_seconds', 30))
+            ->connectTimeout(10)
+            ->withOptions(['allow_redirects' => true]);
 
-        // Forward body for methods that carry payload
-        if (in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'])) {
-            $options['body'] = $request->getContent();
+        // Forward body (and its content type) for methods that carry payload.
+        if (in_array($request->method(), ['POST', 'PUT', 'PATCH', 'DELETE'], true)) {
+            $pending = $pending->withBody(
+                $request->getContent(),
+                $request->header('Content-Type', 'application/json'),
+            );
         }
 
         try {
-            $upstream = $this->httpClient->request($request->method(), $targetUrl, $options);
-        } catch (ConnectException $e) {
+            $upstream = $pending->send($request->method(), $targetUrl);
+        } catch (ConnectionException $e) {
             return new Response(
                 json_encode(['error' => 'Upstream service unavailable.', 'detail' => $e->getMessage()]),
                 Response::HTTP_BAD_GATEWAY,
                 ['Content-Type' => 'application/json'],
             );
-        } catch (RequestException $e) {
-            return new Response(
-                json_encode(['error' => 'Proxy request failed.', 'detail' => $e->getMessage()]),
-                Response::HTTP_BAD_GATEWAY,
-                ['Content-Type' => 'application/json'],
-            );
         }
 
-        // Map Guzzle response → Symfony Response
+        // Map Laravel HTTP client response → Symfony Response, dropping hop-by-hop headers.
         $responseHeaders = [];
-        foreach ($upstream->getHeaders() as $name => $values) {
-            // Skip hop-by-hop headers that must not be forwarded
+        foreach ($upstream->headers() as $name => $values) {
             if ($this->isHopByHopHeader($name)) {
                 continue;
             }
-            $responseHeaders[$name] = implode(', ', $values);
+            $responseHeaders[$name] = implode(', ', (array) $values);
         }
 
-        return new Response(
-            (string) $upstream->getBody(),
-            $upstream->getStatusCode(),
-            $responseHeaders,
-        );
+        return new Response($upstream->body(), $upstream->status(), $responseHeaders);
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────
 
-    private function resolveTargetUrl(Request $request, Endpoint $endpoint): string
+    private function resolveTargetUrl(Endpoint $endpoint): string
     {
-        // Endpoint-level proxy_url takes priority; fall back to service base_url
+        // Endpoint-level proxy_url takes priority; fall back to service base_url.
         $base = $endpoint->proxy_url
             ?? rtrim($endpoint->service->base_url ?? '', '/');
 
@@ -76,9 +63,9 @@ class ProxyHandler implements RequestHandlerInterface
             abort(Response::HTTP_BAD_GATEWAY, 'No proxy URL configured for this endpoint.');
         }
 
-        // Append the original request path after the gateway prefix
-        // e.g. /gateway/bank-api/v1/accounts → /v1/accounts appended to base
-        return $base.'/'.ltrim($endpoint->path, '/');
+        // Append the endpoint path after the upstream base.
+        // e.g. /gateway/bank-api/v1/accounts → {base}/v1/accounts
+        return rtrim($base, '/').'/'.ltrim($endpoint->path, '/');
     }
 
     /** @return array<string, string> */
@@ -86,15 +73,18 @@ class ProxyHandler implements RequestHandlerInterface
     {
         $headers = [];
         foreach ($request->headers->all() as $name => $values) {
-            if ($this->isHopByHopHeader($name) || strtolower($name) === 'host') {
+            // Skip hop-by-hop, host (set by the client), content-length (recomputed),
+            // and content-type (owned by withBody to avoid duplication).
+            if ($this->isHopByHopHeader($name)
+                || in_array(strtolower($name), ['host', 'content-length', 'content-type'], true)) {
                 continue;
             }
             $headers[$name] = implode(', ', $values);
         }
 
-        // Identify ourselves as a proxy
+        // Identify ourselves as a proxy.
         $headers['X-Forwarded-By'] = 'Mockwave';
-        $headers['X-Forwarded-For'] = $request->ip();
+        $headers['X-Forwarded-For'] = $request->ip() ?? '';
 
         return $headers;
     }
@@ -107,6 +97,6 @@ class ProxyHandler implements RequestHandlerInterface
         return in_array(strtolower($name), [
             'connection', 'keep-alive', 'proxy-authenticate', 'proxy-authorization',
             'te', 'trailers', 'transfer-encoding', 'upgrade',
-        ]);
+        ], true);
     }
 }

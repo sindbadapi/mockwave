@@ -2,6 +2,7 @@
 
 namespace Database\Factories;
 
+use App\Models\Endpoint;
 use App\Models\MockResponse;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -18,7 +19,11 @@ class MockResponseFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'endpoint_id' => Endpoint::factory(),
+            'status_code' => 200,
+            'body' => ['ok' => true],
+            'headers' => [],
+            'delay_ms' => 0,
         ];
     }
 }

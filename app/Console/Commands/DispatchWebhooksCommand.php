@@ -4,9 +4,9 @@ namespace App\Console\Commands;
 
 use App\Models\ScheduledWebhook;
 use Cron\CronExpression;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\GuzzleException;
 use Illuminate\Console\Command;
+use Illuminate\Http\Client\ConnectionException;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 class DispatchWebhooksCommand extends Command
@@ -14,11 +14,6 @@ class DispatchWebhooksCommand extends Command
     protected $signature = 'mockwave:dispatch-webhooks';
 
     protected $description = 'Dispatch all active scheduled webhooks whose cron expression matches the current time.';
-
-    public function __construct(private readonly Client $httpClient)
-    {
-        parent::__construct();
-    }
 
     public function handle(): int
     {
@@ -65,32 +60,28 @@ class DispatchWebhooksCommand extends Command
     {
         $this->line("→ Dispatching [{$webhook->name}] to {$webhook->target_url}");
 
-        $options = [
-            'timeout' => 15,
-            'http_errors' => false,
-            'headers' => array_merge(
-                ['Content-Type' => 'application/json'],
-                $webhook->headers ?? [],
-            ),
-        ];
+        $headers = array_merge(
+            ['Content-Type' => 'application/json'],
+            $webhook->headers ?? [],
+        );
 
-        if (! empty($webhook->payload)) {
-            $options['json'] = $webhook->payload;
-        }
+        $options = empty($webhook->payload) ? [] : ['json' => $webhook->payload];
 
         try {
-            $response = $this->httpClient->request($webhook->method, $webhook->target_url, $options);
+            $response = Http::withHeaders($headers)
+                ->timeout(15)
+                ->send($webhook->method, $webhook->target_url, $options);
 
             $webhook->update(['last_run_at' => now()]);
 
-            $this->info("  ✓ {$response->getStatusCode()}");
+            $this->info("  ✓ {$response->status()}");
 
             Log::info('[Webhooks] Dispatched', [
                 'webhook' => $webhook->name,
                 'url' => $webhook->target_url,
-                'status' => $response->getStatusCode(),
+                'status' => $response->status(),
             ]);
-        } catch (GuzzleException $e) {
+        } catch (ConnectionException $e) {
             $this->error("  ✗ Failed: {$e->getMessage()}");
 
             Log::error('[Webhooks] Dispatch failed', [

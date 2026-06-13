@@ -13,7 +13,7 @@
 |----------------------------|----------------------------------------------------|-----------------------------------------------------------------------------------|
 | `laravel-best-practices`   | `.claude/skills/laravel-best-practices/SKILL.md`   | Любой PHP-код: контроллеры, модели, миграции, сервисы, хендлеры, шедулер, очереди |
 | `mcp-development`          | `.claude/skills/mcp-development/SKILL.md`          | Любой код в `app/Mcp/` — инструменты, ресурсы, серверный класс, `routes/ai.php`   |
-| `inertia-react-development`| `.claude/skills/inertia-react-development/SKILL.md`| React-страницы, формы, навигация, Inertia v2 features (deferred props, polling)   |
+| `inertia-react-development`| `.claude/skills/inertia-react-development/SKILL.md`| React-страницы, формы, навигация, Inertia v3 features (deferred props, polling)   |
 | `tailwindcss-development`  | `.claude/skills/tailwindcss-development/SKILL.md`  | Tailwind-классы, компоненты UI, responsive-вёрстка, badge/card/layout паттерны    |
 
 Каждый скилл содержит `rules/` с детальными правилами по подтемам. Скилл указывает, в каком файле искать нужный раздел.
@@ -418,8 +418,8 @@ make logs         # tail всех контейнеров
 
 1. **Прочитай нужный скилл** (раздел 0) — не пиши PHP или MCP-код без него.
 2. Сверяйся с этим документом — не пиши по памяти о структуре проекта.
-3. Используй **Context7** (`/laravel/docs/__branch__13.x`) для актуальной документации Laravel/Inertia/React перед
-   нестандартными паттернами.
+3. Используй **Laravel Boost `search-docs`** для актуальной документации по установленным пакетам — это MCP-инструмент
+   проекта, возвращает версионно-точные результаты. Fallback — Context7 (`/laravel/docs/__branch__13.x`).
 4. Если задача касается нового пакета — сначала `composer require` / `npm install`, потом код.
 
 ### Соглашения кода
@@ -474,7 +474,7 @@ The Laravel Boost guidelines are specifically curated by Laravel maintainers for
 This application is a Laravel application and its main Laravel ecosystems package & versions are below. You are an expert with them all. Ensure you abide by these specific packages & versions.
 
 - php - 8.5
-- inertiajs/inertia-laravel (INERTIA_LARAVEL) - v2
+- inertiajs/inertia-laravel (INERTIA_LARAVEL) - v3
 - laravel/framework (LARAVEL) - v13
 - laravel/prompts (PROMPTS) - v0
 - laravel/sanctum (SANCTUM) - v4
@@ -485,7 +485,8 @@ This application is a Laravel application and its main Laravel ecosystems packag
 - laravel/pint (PINT) - v1
 - laravel/sail (SAIL) - v1
 - phpunit/phpunit (PHPUNIT) - v13
-- @inertiajs/react (INERTIA_REACT) - v2
+- larastan/larastan (LARASTAN) - v3
+- @inertiajs/react (INERTIA_REACT) - v3
 - react (REACT) - v19
 - eslint (ESLINT) - v9
 - tailwindcss (TAILWINDCSS) - v4
@@ -593,9 +594,9 @@ This project has domain-specific skills available in `**/skills/**`. You MUST ac
 - ALWAYS use `search-docs` tool for version-specific Inertia documentation and updated code examples.
 - IMPORTANT: Activate `inertia-react-development` when working with Inertia client-side patterns.
 
-# Inertia v2
+# Inertia v3
 
-- Use all Inertia features from v1 and v2. Check the documentation before making changes to ensure the correct approach.
+- Use all Inertia features from v1, v2, and v3. Check the documentation before making changes to ensure the correct approach.
 - New features: deferred props, infinite scroll, merging props, polling, prefetching, once props, flash data.
 - When using deferred props, add an empty state with a pulsing or animated skeleton.
 

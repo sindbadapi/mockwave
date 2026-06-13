@@ -1,8 +1,9 @@
 import AppLayout from '@/Components/layout/AppLayout'
-import { Head, router, useForm } from '@inertiajs/react'
-import { useState } from 'react'
-import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import type { PaginatedResponse, Service, ServiceMode } from '@/types'
+import { Head, router, useForm } from '@inertiajs/react'
+import { Pencil, Plus, Trash2, X } from 'lucide-react'
+import { ReactNode, useState } from 'react'
 
 interface Props {
     services: PaginatedResponse<Service>
@@ -18,6 +19,7 @@ const EMPTY_FORM = {
 }
 
 export default function ServicesIndex({ services }: Props) {
+    const isAdmin               = useIsAdmin()
     const [open, setOpen]       = useState(false)
     const [editing, setEditing] = useState<Service | null>(null)
 
@@ -41,15 +43,15 @@ export default function ServicesIndex({ services }: Props) {
     const submit = (e: React.FormEvent) => {
         e.preventDefault()
         if (editing) {
-            put(`/api/admin/services/${editing.id}`, { onSuccess: () => { setOpen(false); reset() } })
+            put(route('services.update', editing.id), { onSuccess: () => { setOpen(false); reset() } })
         } else {
-            post('/api/admin/services', { onSuccess: () => { setOpen(false); reset() } })
+            post(route('services.store'), { onSuccess: () => { setOpen(false); reset() } })
         }
     }
 
     const destroy = (service: Service) => {
         if (confirm(`Delete service "${service.name}"? All endpoints and logs will be removed.`)) {
-            router.delete(`/api/admin/services/${service.id}`)
+            router.delete(route('services.destroy', service.id))
         }
     }
 
@@ -60,10 +62,12 @@ export default function ServicesIndex({ services }: Props) {
             {/* ── Header ── */}
             <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-500">{services.meta.total} service(s)</p>
-                <button onClick={openCreate}
-                    className="flex items-center gap-2 px-4 py-2 bg-wave-600 text-white text-sm font-medium rounded-lg hover:bg-wave-700 transition-colors">
-                    <Plus className="w-4 h-4" /> New Service
-                </button>
+                {isAdmin && (
+                    <button onClick={openCreate}
+                        className="flex items-center gap-2 px-4 py-2 bg-wave-600 text-white text-sm font-medium rounded-lg hover:bg-wave-700 transition-colors">
+                        <Plus className="w-4 h-4" /> New Service
+                    </button>
+                )}
             </div>
 
             {/* ── Table ── */}
@@ -93,19 +97,21 @@ export default function ServicesIndex({ services }: Props) {
                                     </span>
                                 </td>
                                 <td className="px-4 py-3">
-                                    <div className="flex items-center gap-2 justify-end">
-                                        <button onClick={() => openEdit(s)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100">
-                                            <Pencil className="w-3.5 h-3.5" />
-                                        </button>
-                                        <button onClick={() => destroy(s)} className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
-                                            <Trash2 className="w-3.5 h-3.5" />
-                                        </button>
-                                    </div>
+                                    {isAdmin && (
+                                        <div className="flex items-center gap-2 justify-end">
+                                            <button onClick={() => openEdit(s)} className="p-1.5 text-gray-400 hover:text-gray-700 rounded hover:bg-gray-100">
+                                                <Pencil className="w-3.5 h-3.5" />
+                                            </button>
+                                            <button onClick={() => destroy(s)} className="p-1.5 text-gray-400 hover:text-red-600 rounded hover:bg-red-50">
+                                                <Trash2 className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    )}
                                 </td>
                             </tr>
                         ))}
                         {services.data.length === 0 && (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No services yet. Create your first one.</td></tr>
+                            <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No services yet.</td></tr>
                         )}
                     </tbody>
                 </table>
@@ -163,8 +169,6 @@ export default function ServicesIndex({ services }: Props) {
                     </div>
                 </div>
             )}
-
-            <style>{`.input-base { @apply w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-wave-500 focus:border-transparent; }`}</style>
         </AppLayout>
     )
 }
@@ -178,5 +182,3 @@ function Field({ label, error, children }: { label: string; error?: string; chil
         </div>
     )
 }
-
-import { ReactNode } from 'react'

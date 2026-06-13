@@ -1,6 +1,7 @@
 <?php
 
 use App\Console\Commands\DispatchWebhooksCommand;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\HandleInertiaRequests;
 use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Foundation\Application;
@@ -29,6 +30,15 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             HandleInertiaRequests::class,
             AddLinkHeadersForPreloadedAssets::class,
+        ]);
+
+        $middleware->alias([
+            'admin' => EnsureUserIsAdmin::class,
+        ]);
+
+        // Gateway принимает внешние запросы (в т.ч. POST/PUT) без CSRF-токена.
+        $middleware->preventRequestForgery(except: [
+            'gateway/*',
         ]);
     })
     ->withSchedule(function (Schedule $schedule) {

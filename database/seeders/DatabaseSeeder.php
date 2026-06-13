@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\UserRole;
 use App\Models\Endpoint;
 use App\Models\MockResponse;
 use App\Models\ScheduledWebhook;
@@ -20,6 +21,7 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Admin',
                 'password' => Hash::make(env('ADMIN_PASSWORD', 'password')),
+                'role' => UserRole::Admin,
             ],
         );
 

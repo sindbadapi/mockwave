@@ -1,4 +1,5 @@
 import AppLayout from '@/Components/layout/AppLayout'
+import { useIsAdmin } from '@/hooks/useIsAdmin'
 import { Head, router } from '@inertiajs/react'
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, Trash2 } from 'lucide-react'
@@ -26,11 +27,12 @@ function statusColor(code: number): string {
 }
 
 export default function LogsIndex({ logs }: Props) {
+    const isAdmin                 = useIsAdmin()
     const [expanded, setExpanded] = useState<number | null>(null)
 
     const clearAll = () => {
         if (confirm('Delete all request logs? This cannot be undone.')) {
-            router.delete('/api/admin/logs')
+            router.delete(route('logs.destroy-all'))
         }
     }
 
@@ -40,10 +42,12 @@ export default function LogsIndex({ logs }: Props) {
 
             <div className="flex items-center justify-between mb-4">
                 <p className="text-sm text-gray-500">{logs.meta.total} log entries</p>
-                <button onClick={clearAll}
-                    className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-                    <Trash2 className="w-4 h-4" /> Clear all logs
-                </button>
+                {isAdmin && (
+                    <button onClick={clearAll}
+                        className="flex items-center gap-2 px-3 py-2 text-sm text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+                        <Trash2 className="w-4 h-4" /> Clear all logs
+                    </button>
+                )}
             </div>
 
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

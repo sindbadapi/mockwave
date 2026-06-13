@@ -18,7 +18,14 @@ class ScheduledWebhookFactory extends Factory
     public function definition(): array
     {
         return [
-            //
+            'name' => fake()->unique()->words(3, true),
+            'target_url' => fake()->url(),
+            'method' => 'POST',
+            'payload' => ['event' => 'demo'],
+            'headers' => [],
+            'cron_expression' => '*/15 * * * *',
+            'is_active' => true,
+            'last_run_at' => null,
         ];
     }
 }
