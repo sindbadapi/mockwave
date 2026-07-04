@@ -9,7 +9,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --prefer-offline
 
 COPY resources/ resources/
-COPY vite.config.ts tsconfig.json ./
+COPY vite.config.ts tsconfig.json tailwind.config.js ./
 COPY public/ public/
 
 RUN npm run build
@@ -118,3 +118,14 @@ USER www-data
 
 EXPOSE 9000
 CMD ["php-fpm"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 5: web — Caddy with baked public assets and automatic HTTPS
+# ─────────────────────────────────────────────────────────────────────────────
+FROM caddy:2-alpine AS web
+
+WORKDIR /var/www
+
+COPY --from=production /var/www/public /var/www/public
+COPY docker/caddy/Caddyfile /etc/caddy/Caddyfile
