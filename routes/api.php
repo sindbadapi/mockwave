@@ -16,14 +16,22 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::middleware('auth')->prefix('admin')->name('admin.')->group(function () {
+    // Read access is available to all authenticated users.
+    Route::apiResource('services', ServiceController::class)->only(['index', 'show']);
+    Route::apiResource('endpoints', EndpointController::class)->only(['index', 'show']);
+    Route::apiResource('mock-responses', MockResponseController::class)->only(['index', 'show']);
+    Route::apiResource('scheduled-webhooks', ScheduledWebhookController::class)->only(['index', 'show']);
 
-    Route::apiResource('services', ServiceController::class);
-    Route::apiResource('endpoints', EndpointController::class);
-    Route::apiResource('mock-responses', MockResponseController::class);
-    Route::apiResource('scheduled-webhooks', ScheduledWebhookController::class);
-
-    // Logs are read-only
     Route::get('logs', [RequestLogController::class, 'index'])->name('logs.index');
     Route::get('logs/{log}', [RequestLogController::class, 'show'])->name('logs.show');
-    Route::delete('logs', [RequestLogController::class, 'destroyAll'])->name('logs.destroy-all');
+
+    // Mutations require full administrative rights.
+    Route::middleware('admin')->group(function () {
+        Route::apiResource('services', ServiceController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('endpoints', EndpointController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('mock-responses', MockResponseController::class)->only(['store', 'update', 'destroy']);
+        Route::apiResource('scheduled-webhooks', ScheduledWebhookController::class)->only(['store', 'update', 'destroy']);
+
+        Route::delete('logs', [RequestLogController::class, 'destroyAll'])->name('logs.destroy-all');
+    });
 });

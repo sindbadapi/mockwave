@@ -35,6 +35,7 @@ Thumbs.db
 # Local AI agent metadata
 /.agents
 /.ai
+/.codex
 /.claude/settings.local.json
 /.gemini
 /.junit

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Service;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Route;
@@ -36,5 +37,31 @@ class RoleTest extends TestCase
         $this->actingAs(User::factory()->admin()->create())
             ->get('/__test-admin-only')
             ->assertOk();
+    }
+
+    public function test_admin_api_blocks_non_admin_mutations(): void
+    {
+        $this->actingAs(User::factory()->create())
+            ->postJson('/api/admin/services', [
+                'name' => 'Bank API',
+                'slug' => 'bank-api',
+                'mode' => 'mock',
+            ])
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('services', ['slug' => 'bank-api']);
+    }
+
+    public function test_admin_api_allows_admin_mutations(): void
+    {
+        $this->actingAs(User::factory()->admin()->create())
+            ->postJson('/api/admin/services', [
+                'name' => 'Bank API',
+                'slug' => 'bank-api',
+                'mode' => 'mock',
+            ])
+            ->assertCreated();
+
+        $this->assertModelExists(Service::where('slug', 'bank-api')->firstOrFail());
     }
 }

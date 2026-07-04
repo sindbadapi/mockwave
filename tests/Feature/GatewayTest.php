@@ -41,6 +41,8 @@ class GatewayTest extends TestCase
 
     public function test_request_is_logged(): void
     {
+        $this->withoutDefer();
+
         $service = Service::factory()->create(['slug' => 'bank-api', 'mode' => 'mock', 'is_active' => true]);
         Endpoint::factory()->create([
             'service_id' => $service->id, 'method' => 'GET', 'path' => '/ping', 'is_active' => true,
@@ -49,6 +51,18 @@ class GatewayTest extends TestCase
         $this->getJson('/gateway/bank-api/ping');
 
         $this->assertDatabaseHas('request_logs', ['path' => '/ping', 'mode_used' => 'mock']);
+    }
+
+    public function test_not_found_request_is_logged(): void
+    {
+        $this->withoutDefer();
+
+        $this->getJson('/gateway/missing-service/ping')->assertNotFound();
+
+        $this->assertDatabaseHas('request_logs', [
+            'path' => '/ping',
+            'mode_used' => 'not_found',
+        ]);
     }
 
     public function test_proxy_forwards_to_upstream(): void

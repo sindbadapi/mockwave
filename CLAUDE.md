@@ -224,7 +224,8 @@ GET /mcp   ← точка подключения MCP-клиента
 
 ## 7. API эндпоинты (admin)
 
-Все маршруты требуют `auth` middleware. Префикс: `/api/admin/`.
+Все маршруты требуют `auth` middleware. Мутации (`POST`, `PUT`, `PATCH`, `DELETE`) дополнительно требуют роль `admin`.
+Префикс: `/api/admin/`.
 
 | Метод  | URL                                  | Описание                                         |
 |--------|--------------------------------------|--------------------------------------------------|
@@ -258,9 +259,9 @@ GET /mcp   ← точка подключения MCP-клиента
 |-------------------|---------------------------|-----------------|
 | `/`               | `Dashboard.tsx`           | ✅ готово        |
 | `/services`       | `Services/Index.tsx`      | ✅ готово (CRUD) |
-| `/endpoints`      | `Endpoints/Index.tsx`     | ⬜ нужно создать |
-| `/mock-responses` | `MockResponses/Index.tsx` | ⬜ нужно создать |
-| `/scheduler`      | `Scheduler/Index.tsx`     | ⬜ нужно создать |
+| `/endpoints`      | `Endpoints/Index.tsx`     | ✅ готово        |
+| `/mock-responses` | `MockResponses/Index.tsx` | ✅ готово        |
+| `/scheduler`      | `Scheduler/Index.tsx`     | ✅ готово        |
 | `/logs`           | `Logs/Index.tsx`          | ✅ готово        |
 
 Данные в Inertia-страницы передаются через `Inertia::render('PageName', [...props])` из Laravel-контроллера. Для
@@ -275,7 +276,13 @@ SPA-данных с фильтрами и пагинацией — через AJ
 ```ts
 interface SharedProps {
     auth: {
-        user: { id: number; name: string; email: string } | null
+        user: {
+            id: number
+            name: string
+            email: string
+            email_verified_at: string | null
+            role: 'admin' | 'user'
+        } | null
     }
     flash: {
         success: string | null
@@ -386,20 +393,6 @@ make logs         # tail всех контейнеров
 ---
 
 ## 15. Что ещё не реализовано (роадмап)
-
-Отсутствующие страницы (нужно создать):
-
-- `resources/js/Pages/Endpoints/Index.tsx`
-- `resources/js/Pages/MockResponses/Index.tsx`
-- `resources/js/Pages/Scheduler/Index.tsx`
-
-Отсутствует Laravel auth (маршруты `/login`, `/logout`):
-
-- нужно `routes/auth.php` (Laravel Breeze или вручную)
-
-Отсутствует `routes/console.php` (упоминается в `bootstrap/app.php`):
-
-- создать пустой файл или добавить closure-команды
 
 Не реализовано из роадмапа:
 

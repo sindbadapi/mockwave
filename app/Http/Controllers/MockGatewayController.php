@@ -11,6 +11,8 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Response;
 
+use function Illuminate\Support\defer;
+
 class MockGatewayController extends Controller
 {
     public function __construct(
@@ -124,42 +126,39 @@ class MockGatewayController extends Controller
         Response $response,
         string $path,
     ): Response {
-        try {
-            $maxSize = config('gateway.max_log_body_size', 65536);
+        $maxSize = config('gateway.max_log_body_size', 65536);
+        $requestData = config('gateway.log_request_body')
+            ? [
+                'headers' => $request->headers->all(),
+                'query' => $request->query->all(),
+                'body' => $this->truncate($request->getContent(), $maxSize),
+            ]
+            : null;
+        $responseData = config('gateway.log_response_body')
+            ? [
+                'status' => $response->getStatusCode(),
+                'headers' => $response->headers->all(),
+                'body' => $this->truncate($response->getContent(), $maxSize),
+            ]
+            : null;
+        $requestMethod = $request->method();
 
-            $requestData = null;
-            $responseData = null;
-
-            if (config('gateway.log_request_body')) {
-                $requestData = [
-                    'headers' => $request->headers->all(),
-                    'query' => $request->query->all(),
-                    'body' => $this->truncate($request->getContent(), $maxSize),
-                ];
+        defer(function () use ($endpoint, $requestMethod, $path, $mode, $duration, $requestData, $responseData): void {
+            try {
+                RequestLog::create([
+                    'endpoint_id' => $endpoint?->id,
+                    'method' => $requestMethod,
+                    'path' => '/'.ltrim($path, '/'),
+                    'request_data' => $requestData,
+                    'response_data' => $responseData,
+                    'mode_used' => $mode,
+                    'duration_ms' => $duration,
+                    'created_at' => now(),
+                ]);
+            } catch (\Throwable $e) {
+                Log::warning('[Gateway] Failed to write request log: '.$e->getMessage());
             }
-
-            if (config('gateway.log_response_body')) {
-                $responseData = [
-                    'status' => $response->getStatusCode(),
-                    'headers' => $response->headers->all(),
-                    'body' => $this->truncate($response->getContent(), $maxSize),
-                ];
-            }
-
-            RequestLog::create([
-                'endpoint_id' => $endpoint?->id,
-                'method' => $request->method(),
-                'path' => '/'.ltrim($path, '/'),
-                'request_data' => $requestData,
-                'response_data' => $responseData,
-                'mode_used' => $mode,
-                'duration_ms' => $duration,
-                'created_at' => now(),
-            ]);
-        } catch (\Throwable $e) {
-            // Never let logging failure break the actual response
-            Log::warning('[Gateway] Failed to write request log: '.$e->getMessage());
-        }
+        })->always();
 
         return $response;
     }
