@@ -110,7 +110,13 @@ RUN composer install \
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
 # Storage & cache directories must be writable
-RUN chown -R www-data:www-data \
+RUN mkdir -p \
+    /var/www/storage/framework/cache/data \
+    /var/www/storage/framework/sessions \
+    /var/www/storage/framework/testing \
+    /var/www/storage/framework/views \
+    /var/www/bootstrap/cache \
+    && chown -R www-data:www-data \
     /var/www/storage \
     /var/www/bootstrap/cache
 
