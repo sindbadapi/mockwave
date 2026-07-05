@@ -9,7 +9,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci --prefer-offline
 
 COPY resources/ resources/
-COPY vite.config.ts tsconfig.json ./
+COPY vite.config.ts tsconfig.json tailwind.config.js ./
 COPY public/ public/
 
 RUN npm run build
@@ -110,7 +110,13 @@ RUN composer install \
 COPY docker/php/opcache.ini /usr/local/etc/php/conf.d/opcache.ini
 
 # Storage & cache directories must be writable
-RUN chown -R www-data:www-data \
+RUN mkdir -p \
+    /var/www/storage/framework/cache/data \
+    /var/www/storage/framework/sessions \
+    /var/www/storage/framework/testing \
+    /var/www/storage/framework/views \
+    /var/www/bootstrap/cache \
+    && chown -R www-data:www-data \
     /var/www/storage \
     /var/www/bootstrap/cache
 
@@ -118,3 +124,14 @@ USER www-data
 
 EXPOSE 9000
 CMD ["php-fpm"]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 5: web — Caddy with baked public assets and automatic HTTPS
+# ─────────────────────────────────────────────────────────────────────────────
+FROM caddy:2-alpine AS web
+
+WORKDIR /var/www
+
+COPY --from=production /var/www/public /var/www/public
+COPY docker/caddy/Caddyfile /etc/caddy/Caddyfile

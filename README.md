@@ -2,137 +2,76 @@
 
 > Adaptive Mock Service — система для имитации и проксирования запросов к микросервисам.
 
-Mockwave позволяет заменять реальные сервисы гибким мок-слоем с административной панелью, поддержкой расписаний и
-детальным логированием — без изменения кода клиентских приложений.
-
----
-
-## Содержание
-
-- [Возможности](#возможности)
-- [Стек технологий](#стек-технологий)
-- [Архитектура](#архитектура)
-- [Быстрый старт](#быстрый-старт)
-- [Переменные окружения](#переменные-окружения)
-- [Структура проекта](#структура-проекта)
-- [Схема базы данных](#схема-базы-данных)
-- [API Gateway](#api-gateway)
-- [MCP сервер](#mcp-сервер)
-- [Agentic Development](#Agentic-Development)
-- [Планировщик вебхуков](#планировщик-вебхуков)
-- [Административная панель](#административная-панель)
-- [Разработка](#разработка)
-- [Production](#production)
-
----
+Mockwave позволяет зарегистрировать сервисы и их эндпоинты, возвращать настроенные mock-ответы или прозрачно
+проксировать запросы в реальные upstream-сервисы. Управление выполняется через административную панель или MCP.
 
 ## Возможности
 
-| Функция               | Описание                                                           |
-|-----------------------|--------------------------------------------------------------------|
-| **Mock Mode**         | Возврат заранее настроенных ответов (body, headers, status, delay) |
-| **Proxy Mode**        | Прозрачное проксирование запросов к реальному сервису              |
-| **Webhook Scheduler** | Имитация входящих вебхуков по cron-расписанию                      |
-| **Request Logs**      | Полное логирование всех входящих запросов и ответов                |
-| **Admin Panel**       | SPA на Inertia + React для управления всей конфигурацией           |
-| **MCP Server**        | AI-клиенты (Claude, Cursor) управляют сервисами через MCP          |
-| **Multi-service**     | Поддержка неограниченного числа сервисов и эндпоинтов              |
+| Функция | Описание |
+|---|---|
+| **Mock Mode** | Настраиваемые body, headers, HTTP status и задержка ответа |
+| **Proxy Mode** | Прозрачная передача запроса в реальный upstream |
+| **Webhook Scheduler** | Отправка вебхуков по cron-расписанию |
+| **Request Logs** | Логирование запросов и ответов после отправки ответа клиенту |
+| **Admin Panel** | SPA для управления сервисами, эндпоинтами, моками и логами |
+| **Roles** | Чтение доступно пользователям, изменения — только администраторам |
+| **MCP Server** | Управление Mockwave из AI-клиентов через MCP |
+| **Auth switches** | Независимое включение регистрации и восстановления пароля |
 
----
+## Стек
 
-## Стек технологий
+- PHP 8.5, Laravel 13
+- PostgreSQL 16
+- Redis 7
+- Inertia.js 3, React 19, TypeScript
+- Vite 8, Tailwind CSS 4
+- Laravel MCP
+- Docker Compose
+- Nginx для локальной разработки
+- Caddy с автоматическим HTTPS для production
 
-**Backend**
+## Как обрабатывается запрос
 
-- [Laravel 13](https://laravel.com/) — PHP 8.5, PHP-фреймворк
-- [PostgreSQL 16](https://www.postgresql.org/) — основная база данных (JSONB для body/headers/payload)
-- [Redis 7](https://redis.io/) — очереди и кеш
-- [Laravel Http Client](https://laravel.com/docs/13.x/http-client) — проксирование запросов (обёртка над Guzzle)
-
-**Frontend**
-
-- [Inertia.js 3](https://inertiajs.com/) — связующий слой между Laravel и React
-- [React 19](https://react.dev/) — UI-компоненты
-- [TypeScript](https://www.typescriptlang.org/) — типизация
-- [Vite 8](https://vitejs.dev/) — сборка ассетов
-- [Tailwind CSS 4](https://tailwindcss.com/) — стили
-
-**AI / MCP**
-
-- [Laravel MCP](https://laravel.com/docs/13.x/mcp) — встроенный MCP-модуль Laravel 13
-
-**Инфраструктура**
-
-- [Docker + Docker Compose](https://www.docker.com/) — локальная разработка (Node 24, PHP 8.5)
-- [Dokploy](https://dokploy.com/) — деплой на VPS *(в роадмапе)*
-
----
-
-## Архитектура
-
-```
-Client Request
-      │
-      ▼
-┌────────────────────────┐
-│  MockGatewayController │  ← единая точка входа
-│  /gateway/{svc}/{path} │
-└──────────┬─────────────┘
-           │
-    ┌──────┴──────┐
-    │             │
-    ▼             ▼
-┌────────┐  ┌─────────┐
-│  Mock  │  │  Proxy  │
-│Handler │  │ Handler │
-└───┬────┘  └────┬────┘
-    │             │
-    ▼             ▼
-Configured    Real
-Response    Microservice
-    │
-    ▼ defer()
-RequestLog (PostgreSQL)
-
-AI Client (Claude / Cursor)
-      │
-      ▼ MCP  /mcp
-┌─────────────────┐
-│ MockwaveServer  │  ← tools: SwitchMode, GetLogs, ...
-└─────────────────┘
+```text
+Client
+  │
+  ▼
+/gateway/{service_slug}/{path}
+  │
+  ▼
+MockGatewayController
+  │
+  ├── mock  ──► настроенный MockResponse
+  │
+  └── proxy ──► реальный upstream
+  │
+  ▼
+defer() ──► RequestLog в PostgreSQL
 ```
 
-Роутинг происходит по `service_slug` + `path`. Каждый сервис и каждый эндпоинт могут иметь собственный режим (`mock` /
-`proxy`), причём режим эндпоинта (`mode_override`) имеет приоритет над режимом сервиса.
+Сервис задаёт основной режим `mock` или `proxy`. Значение `mode_override` конкретного эндпоинта имеет приоритет над
+режимом сервиса.
 
----
-
-## Быстрый старт
+## Локальный запуск
 
 ### Требования
 
 - Docker 24+
 - Docker Compose v2+
-- Make *(опционально, для удобных команд)*
+- Make — опционально
 
 ### Установка
 
 ```bash
-# 1. Клонировать репозиторий
-git clone https://github.com/your-username/mockwave.git
+git clone https://github.com/sindbadapi/mockwave.git
 cd mockwave
 
-# 2. Скопировать конфиг окружения
 cp .env.example .env
-
-# 3. Поднять контейнеры
 docker compose up -d
-
-# 4. Установить зависимости и настроить приложение
 make install
 ```
 
-Или вручную, без Make:
+Без Make:
 
 ```bash
 docker compose exec app composer install
@@ -142,26 +81,28 @@ docker compose exec app npm install
 docker compose exec app npm run build
 ```
 
-Административная панель доступна по адресу: **http://localhost:8080**
+Приложение будет доступно по адресу [http://localhost:8080](http://localhost:8080).
 
-Учётные данные по умолчанию (seeder):
+Начальный администратор создаётся seeder:
 
-- Email: `admin@mockwave.local`
-- Password: `password`
+```text
+Email:    admin@mockwave.local
+Password: password
+```
 
----
+Перед публичным развёртыванием обязательно задайте собственные `ADMIN_EMAIL` и `ADMIN_PASSWORD`.
 
-## Переменные окружения
+## Конфигурация
 
-Полный список переменных в `.env.example`. Ключевые:
+Полный список находится в [.env.example](.env.example). Основные переменные:
 
 ```dotenv
-# Приложение
 APP_NAME=Mockwave
 APP_ENV=local
+APP_KEY=
+APP_DEBUG=true
 APP_URL=http://localhost:8080
 
-# База данных
 DB_CONNECTION=pgsql
 DB_HOST=postgres
 DB_PORT=5432
@@ -169,269 +110,482 @@ DB_DATABASE=mockwave
 DB_USERNAME=mockwave
 DB_PASSWORD=secret
 
-# Redis
 REDIS_HOST=redis
 REDIS_PORT=6379
-
-# Очереди
 QUEUE_CONNECTION=redis
 
-# Gateway
-GATEWAY_TIMEOUT_SECONDS=30        # таймаут проксирования
-GATEWAY_LOG_REQUEST_BODY=true      # логировать тело запроса
-GATEWAY_LOG_RESPONSE_BODY=true     # логировать тело ответа
-GATEWAY_MAX_LOG_BODY_SIZE=65536    # максимальный размер тела в логе (байт)
+GATEWAY_TIMEOUT_SECONDS=30
+GATEWAY_LOG_REQUEST_BODY=true
+GATEWAY_LOG_RESPONSE_BODY=true
+GATEWAY_MAX_LOG_BODY_SIZE=65536
 
-# Seeder
+AUTH_REGISTRATION_ENABLED=false
+AUTH_PASSWORD_RESET_ENABLED=false
+
 ADMIN_EMAIL=admin@mockwave.local
 ADMIN_PASSWORD=password
 ```
 
----
+### Регистрация и восстановление пароля
 
-## Структура проекта
+Публичные auth-возможности управляются независимо:
 
-```
-mockwave/
-├── app/
-│   ├── Console/Commands/
-│   │   └── DispatchWebhooksCommand.php   # artisan mockwave:dispatch-webhooks
-│   ├── Http/
-│   │   ├── Controllers/
-│   │   │   ├── Admin/                    # CRUD: Service, Endpoint, MockResponse,
-│   │   │   │                             #       ScheduledWebhook, RequestLog, Dashboard
-│   │   │   └── MockGatewayController.php # единая точка входа gateway
-│   │   ├── Requests/Admin/               # FormRequest-классы (Store*/Update*)
-│   │   └── Resources/                    # API Resources
-│   ├── Mcp/
-│   │   ├── Servers/MockwaveServer.php    # регистрирует tools + resources
-│   │   ├── Tools/                        # ListServices, GetEndpoints, SwitchMode, ...
-│   │   └── Resources/                    # ServiceConfig, RequestLog (URI-шаблоны)
-│   ├── Models/
-│   │   ├── Service.php
-│   │   ├── Endpoint.php
-│   │   ├── MockResponse.php
-│   │   ├── ScheduledWebhook.php
-│   │   └── RequestLog.php        # append-only
-│   ├── Providers/
-│   │   └── AppServiceProvider.php
-│   └── Services/
-│       ├── Contracts/RequestHandlerInterface.php
-│       ├── MockHandler.php
-│       └── ProxyHandler.php      # использует Laravel Http Client
-├── bootstrap/app.php
-├── config/gateway.php            # timeout_seconds, log_request_body, max_log_body_size
-├── database/
-│   ├── migrations/
-│   └── seeders/DatabaseSeeder.php
-├── docker/
-│   ├── nginx/default.conf
-│   ├── php/php.ini + opcache.ini
-│   └── scheduler/scheduler.sh
-├── docker-compose.yml
-├── Dockerfile                    # stages: node_builder → php_base → dev → production
-├── resources/
-│   ├── css/app.css
-│   └── js/
-│       ├── Pages/                # Inertia-страницы (React + TypeScript)
-│       ├── Components/
-│       └── types/index.ts        # все TypeScript-типы проекта
-├── routes/
-│   ├── web.php                   # /health, admin SPA, auth, gateway catch-all
-│   ├── api.php                   # /api/admin/* (auth middleware)
-│   └── ai.php                    # MCP: Mcp::web('/mcp', MockwaveServer::class)
-├── .env.example
-├── composer.json
-├── package.json
-└── vite.config.ts
+```dotenv
+# Разрешить создание новых аккаунтов через /register
+AUTH_REGISTRATION_ENABLED=true
+
+# Разрешить /forgot-password и /reset-password/*
+AUTH_PASSWORD_RESET_ENABLED=true
 ```
 
----
+По умолчанию обе настройки равны `false`: доступен только вход существующих пользователей. Отключённые страницы и
+обработчики форм возвращают `404`, а ссылка восстановления не отображается на странице входа.
 
-## Схема базы данных
+После изменения production-конфигурации пересоздайте контейнер приложения и обновите кеш:
 
-```sql
-services
-  id, name, slug (unique), base_url, description,
-  mode enum('mock','proxy') default 'mock',
-  is_active bool, timestamps
+```bash
+docker compose --env-file .env.production -f compose.production.yml \
+  up -d --no-build --force-recreate app
 
-endpoints
-  id, service_id FK→services,
-  method ('GET'|'POST'|'PUT'|'PATCH'|'DELETE'|'HEAD'|'OPTIONS'|'ANY'),
-  path (starts with /),
-  mode_override enum('mock','proxy') NULLABLE,
-  proxy_url NULLABLE,
-  is_active bool, timestamps
-  UNIQUE(service_id, method, path)
-
-mock_responses
-  id, endpoint_id FK→endpoints,
-  status_code smallint default 200,
-  body jsonb NULLABLE, headers jsonb NULLABLE,
-  delay_ms int default 0, timestamps
-
-scheduled_webhooks
-  id, name, target_url, method,
-  payload jsonb NULLABLE, headers jsonb NULLABLE,
-  cron_expression, is_active bool,
-  last_run_at timestamp NULLABLE, timestamps
-
-request_logs
-  id, endpoint_id FK NULLABLE→endpoints,
-  method, path,
-  request_data jsonb,   -- {headers, query, body}
-  response_data jsonb,  -- {status, headers, body}
-  mode_used enum('mock','proxy','not_found'),
-  duration_ms int, created_at (indexed)
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan optimize
 ```
 
----
+Смена пароля авторизованного пользователя остаётся доступной независимо от этих переключателей:
+`Profile → Update Password`.
 
 ## API Gateway
 
-Все входящие запросы к мок-сервису проходят через единый роут:
+Единая публичная точка входа:
 
-```
+```text
 {METHOD} /gateway/{service_slug}/{path?}
 ```
 
 Примеры:
 
 ```bash
-# Запрос к мок-сервису банка
 curl http://localhost:8080/gateway/bank-api/v1/accounts
 
-# Запрос с заголовками
 curl -H "Authorization: Bearer test-token" \
-     http://localhost:8080/gateway/payment-service/charge
+  http://localhost:8080/gateway/payment-service/charge
 ```
 
-Режим обработки (mock/proxy) определяется автоматически: `Endpoint.mode_override` имеет приоритет над `Service.mode`.
+Поддерживаются методы `GET`, `POST`, `PUT`, `PATCH`, `DELETE`, `HEAD`, `OPTIONS` и универсальный метод `ANY`.
 
----
+## Административная панель
 
-## MCP сервер
+| Раздел | Назначение |
+|---|---|
+| Dashboard | Сводная информация |
+| Services | Сервисы, upstream URL и основной режим |
+| Endpoints | HTTP-методы, пути и переопределение режима |
+| Mock Responses | Body, headers, status code и задержка |
+| Scheduler | Вебхуки и cron-расписание |
+| Request Logs | Фильтрация и просмотр запросов/ответов |
+| Profile | Данные пользователя и смена пароля |
 
-Mockwave предоставляет MCP-сервер для AI-клиентов (Claude, Cursor и других). Это позволяет управлять сервисами
-прямо из чата или IDE — без открытия административной панели.
+Все страницы требуют аутентификацию. Пользователь с ролью `user` имеет доступ на чтение, а мутации разрешены только
+роли `admin`.
 
-**Точка подключения:** `http://localhost:8080/mcp` (требует аутентификацию)
+JSON API административной панели доступен под префиксом `/api/admin`.
 
-**Доступные инструменты:**
+## MCP
 
-| Tool              | Что делает                                |
-|-------------------|-------------------------------------------|
-| `ListServices`    | Список всех сервисов с режимом и статусом |
-| `GetEndpoints`    | Эндпоинты конкретного сервиса             |
-| `SwitchMode`      | Переключить сервис между mock и proxy     |
-| `GetRequestLogs`  | Последние логи запросов для эндпоинта     |
-| `GetMockResponse` | Прочитать настроенный мок-ответ           |
+MCP endpoint поддерживает транспортные запросы `GET`, `POST` и `DELETE`:
 
-**Ресурсы (Resources):**
+```text
+/mcp
+```
 
-| URI                            | Содержимое                                   |
-|--------------------------------|----------------------------------------------|
-| `mockwave://services/{slug}`   | Полная конфигурация сервиса и его эндпоинтов |
-| `mockwave://logs/{endpointId}` | Последние логи запросов                      |
+Маршрут защищён middleware `auth:sanctum`.
 
----
+### Доступ для агента
 
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+Создайте для агента отдельного пользователя с ролью `admin` и Sanctum-токеном:
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+php artisan mockwave:mcp-agent agent@example.com
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+В Docker production:
 
----
+```bash
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan mockwave:mcp-agent agent@example.com
+```
+
+Команда один раз выведет Bearer-токен. Он хранится в базе только в виде SHA-256 hash, поэтому скопируйте его сразу и
+передавайте MCP-клиенту через заголовок:
+
+```http
+Authorization: Bearer 1|YOUR_TOKEN
+```
+
+Пример конфигурации MCP-клиента:
+
+```json
+{
+  "mcpServers": {
+    "mockwave": {
+      "url": "https://mockwave.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer 1|YOUR_TOKEN"
+      }
+    }
+  }
+}
+```
+
+### Подключение Codex
+
+Сначала примените миграции и создайте агента на production-сервере:
+
+```bash
+cd ~/mockwave
+
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan migrate --force
+
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan mockwave:mcp-agent agent@example.com
+```
+
+Команда покажет токен вида `1|xxxxxxxx`. На компьютере, где запускается Codex, добавьте сервер в
+`~/.codex/config.toml`:
+
+```toml
+[mcp_servers.mockwave]
+url = "https://mockwave.example.com/mcp"
+bearer_token_env_var = "MOCKWAVE_MCP_TOKEN"
+required = true
+default_tools_approval_mode = "prompt"
+```
+
+Перед запуском Codex передайте токен через переменную окружения:
+
+```bash
+export MOCKWAVE_MCP_TOKEN='1|xxxxxxxx'
+codex
+```
+
+Не записывайте сам токен в `config.toml`, проектный `.codex/config.toml` или Git. CLI и IDE-расширение Codex используют
+общую конфигурацию MCP. Для проверки подключения выполните в Codex:
+
+```text
+/mcp
+```
+
+Сервер `mockwave` должен показать инструменты:
+
+```text
+list-services-tool
+get-endpoints-tool
+get-mock-response-tool
+get-request-logs-tool
+create-service-tool
+create-endpoint-tool
+upsert-mock-response-tool
+switch-mode-tool
+```
+
+После подключения агенту можно дать задачу:
+
+```text
+Создай сервис catalog-api, добавь GET /v1/products
+и настрой mock-ответ 200 с телом {"products": []}.
+```
+
+Подробнее о Streamable HTTP MCP и Bearer-аутентификации:
+[документация Codex MCP](https://developers.openai.com/codex/mcp).
+
+### Подключение Claude Code
+
+Создайте `.mcp.json` в корне проекта:
+
+```json
+{
+  "mcpServers": {
+    "mockwave": {
+      "type": "http",
+      "url": "https://mockwave.example.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${MOCKWAVE_MCP_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+Claude Code подставляет `${MOCKWAVE_MCP_TOKEN}` из окружения во время запуска. Перед запуском:
+
+```bash
+export MOCKWAVE_MCP_TOKEN='1|xxxxxxxx'
+claude
+```
+
+Внутри Claude Code проверьте подключение:
+
+```text
+/mcp
+```
+
+Либо проверьте конфигурацию из терминала:
+
+```bash
+claude mcp list
+claude mcp get mockwave
+```
+
+При первом открытии проекта Claude Code попросит подтвердить доверие к `.mcp.json`. Сам токен в этот файл не
+записывается и не должен попадать в Git. Подробнее:
+[документация Claude Code MCP](https://code.claude.com/docs/en/mcp).
+
+Токен получает abilities `mcp:read` и `mcp:write`. Операции записи требуют одновременно ability `mcp:write` и роль
+`admin`. Для ротации токена с отзывом всех ранее выданных токенов:
+
+```bash
+php artisan mockwave:mcp-agent agent@example.com --revoke-existing
+```
+
+Существующий обычный пользователь не повышается автоматически. Для осознанного повышения используйте `--promote`.
+Токен является секретом: не добавляйте его в Git и не передавайте в логи.
+
+### Tools
+
+| Tool | Назначение |
+|---|---|
+| `ListServices` | Список сервисов |
+| `GetEndpoints` | Эндпоинты выбранного сервиса |
+| `SwitchMode` | Переключение режима mock/proxy |
+| `GetRequestLogs` | Последние логи эндпоинта |
+| `GetMockResponse` | Настроенный mock-ответ |
+| `CreateService` | Создание сервиса, только для администратора |
+| `CreateEndpoint` | Создание эндпоинта, только для администратора |
+| `UpsertMockResponse` | Создание или обновление mock-ответа, только для администратора |
+
+### Resources
+
+| URI | Содержимое |
+|---|---|
+| `mockwave://services/{slug}` | Конфигурация сервиса и эндпоинтов |
+| `mockwave://logs/{endpointId}` | Последние логи запросов |
 
 ## Планировщик вебхуков
 
-Mockwave умеет имитировать входящие вебхуки от внешних систем по расписанию.
+Расписание задаётся cron-выражением:
 
-Расписание настраивается через административную панель в формате cron-выражений:
-
-```
-┌─────────── минута (0-59)
-│ ┌────────── час (0-23)
-│ │ ┌───────── день месяца (1-31)
-│ │ │ ┌──────── месяц (1-12)
-│ │ │ │ ┌─────── день недели (0-6)
+```text
+┌──────── минута (0–59)
+│ ┌────── час (0–23)
+│ │ ┌──── день месяца (1–31)
+│ │ │ ┌── месяц (1–12)
+│ │ │ │ ┌ день недели (0–6)
 │ │ │ │ │
 * * * * *
 ```
 
-Пример: `*/15 * * * *` — каждые 15 минут.
+Например, `*/15 * * * *` — запуск каждые 15 минут.
 
----
-
-## Административная панель
-
-SPA построена на Inertia.js + React и включает следующие разделы:
-
-- **Services** — добавление и управление сервисами
-- **Endpoints** — настройка эндпоинтов, выбор режима mock/proxy
-- **Mock Responses** — редактор тела ответа, заголовков, статуса и задержки
-- **Scheduler** — управление вебхук-задачами и расписанием
-- **Request Logs** — просмотр и фильтрация логов с full diff запрос/ответ
-
----
-
-## Разработка
-
-### Доступные команды (Make)
+Локально scheduler запускается обычным `docker compose`. В production worker и scheduler вынесены в профиль
+`background`:
 
 ```bash
-make up           # docker compose up -d
-make install      # первый запуск: composer + key + migrate + seed + npm build
-make migrate      # php artisan migrate
-make fresh        # migrate:fresh --seed (сбрасывает данные)
-make test         # php artisan test
-make test-filter FILTER=GatewayTest
-make npm-dev      # vite dev с HMR
-make npm-build    # production build
-make lint         # pint + eslint
-make phpstan      # PHPStan статический анализ (level 6)
-make cache-clear  # сброс всех кешей Laravel
-make shell        # bash в app-контейнере
-make logs         # tail всех контейнеров
+docker compose --env-file .env.production -f compose.production.yml \
+  --profile background up -d
 ```
 
-### Контейнеры
-
-| Сервис      | Образ              | Роль                | Порт (хост)                         |
-|-------------|--------------------|---------------------|-------------------------------------|
-| `app`       | Dockerfile `dev`   | PHP-FPM (Laravel)   | —                                   |
-| `nginx`     | nginx:1.25-alpine  | Веб-сервер          | `APP_PORT` (default 8080)           |
-| `postgres`  | postgres:16-alpine | База данных         | `DB_PORT_FORWARD` (default 5432)    |
-| `redis`     | redis:7-alpine     | Кеш и очереди       | `REDIS_PORT_FORWARD` (default 6379) |
-| `queue`     | Dockerfile `dev`   | `queue:work redis`  | —                                   |
-| `scheduler` | Dockerfile `dev`   | loop `schedule:run` | —                                   |
-
----
+Без этого профиля основная панель, gateway, PostgreSQL и Redis продолжают работать, но фоновые очереди и расписание
+не выполняются.
 
 ## Production
 
-```bash
-# Сборка production-образа (multi-stage)
-docker build -t mockwave:latest .
+Production-стек описан в [compose.production.yml](compose.production.yml):
 
-# Health-check эндпоинт (без авторизации)
-curl http://your-domain.com/health
-# → {"status": "ok", "timestamp": "..."}
+| Сервис | Назначение | Лимит памяти |
+|---|---|---:|
+| `app` | Laravel PHP-FPM | 256 MB |
+| `web` | Caddy, статика, HTTPS | 64 MB |
+| `postgres` | PostgreSQL 16 | 192 MB |
+| `redis` | Redis 7 | 96 MB |
+| `queue` | Laravel queue worker, профиль `background` | 160 MB |
+| `scheduler` | Laravel scheduler, профиль `background` | 160 MB |
+
+Caddy автоматически получает TLS-сертификат, перенаправляет HTTP на HTTPS и добавляет security headers.
+
+### Первый деплой на VPS
+
+Требуются Docker Compose, DNS A-запись домена на IP сервера и свободные порты `80/443`.
+
+```bash
+git clone https://github.com/sindbadapi/mockwave.git
+cd mockwave
+
+cp .env.example .env.production
+chmod 600 .env.production
 ```
 
-Деплой на VPS через Dokploy — отдельная задача. Инфраструктурные файлы (`Dockerfile`, `.env.example`) подготовлены для
-этого шага.
+Минимальные production-значения:
 
----
+```dotenv
+APP_DOMAIN=mockwave.example.com
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://mockwave.example.com
+APP_KEY=base64:PASTE_GENERATED_KEY_HERE
+
+DB_CONNECTION=pgsql
+DB_HOST=postgres
+DB_PORT=5432
+DB_DATABASE=mockwave
+DB_USERNAME=mockwave
+DB_PASSWORD=CHANGE_ME
+
+REDIS_HOST=redis
+REDIS_PORT=6379
+CACHE_STORE=redis
+SESSION_DRIVER=redis
+QUEUE_CONNECTION=redis
+
+AUTH_REGISTRATION_ENABLED=false
+AUTH_PASSWORD_RESET_ENABLED=false
+
+ADMIN_EMAIL=admin@mockwave.example.com
+ADMIN_PASSWORD=CHANGE_ME
+```
+
+Сгенерировать `APP_KEY` можно командой `php artisan key:generate --show` в установленном проекте. Не добавляйте
+`.env.production` в Git.
+
+Сборка и запуск:
+
+```bash
+docker compose --env-file .env.production -f compose.production.yml build
+docker compose --env-file .env.production -f compose.production.yml up -d
+
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan migrate --force
+
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan db:seed --force
+
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan optimize
+```
+
+Проверка:
+
+```bash
+docker compose --env-file .env.production -f compose.production.yml ps
+curl -I https://mockwave.example.com/login
+curl -I https://mockwave.example.com/up
+```
+
+### Обновление
+
+```bash
+git pull --ff-only
+
+docker compose --env-file .env.production -f compose.production.yml build app web
+docker compose --env-file .env.production -f compose.production.yml up -d
+
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan migrate --force
+
+docker compose --env-file .env.production -f compose.production.yml \
+  exec -T app php artisan optimize
+```
+
+На маломощном VPS production-образы удобнее собирать на локальной машине под платформу сервера, передавать через
+`docker save`/`docker load`, а на сервере выполнять `up -d --no-build`.
+
+Health endpoint Laravel: `/up`.
+
+## Разработка
+
+### Make
+
+```bash
+make up
+make down
+make install
+make migrate
+make fresh
+make test
+make test-filter FILTER=GatewayTest
+make npm-dev
+make npm-build
+make lint
+make phpstan
+make cache-clear
+make shell
+make logs
+```
+
+### Проверки без Make
+
+```bash
+php artisan test
+./vendor/bin/pint --test
+npm run type-check
+npm run lint
+npm run build
+```
+
+### Локальные контейнеры
+
+| Сервис | Назначение | Порт хоста |
+|---|---|---|
+| `app` | PHP-FPM, Node.js, Vite | `5173` |
+| `nginx` | HTTP | `APP_PORT`, по умолчанию `8080` |
+| `postgres` | PostgreSQL | `DB_PORT_FORWARD`, по умолчанию `5432` |
+| `redis` | Redis | `REDIS_PORT_FORWARD`, по умолчанию `6379` |
+| `queue` | Queue worker | — |
+| `scheduler` | Laravel scheduler | — |
+
+## Структура
+
+```text
+app/
+├── Console/Commands/             # команды scheduler
+├── Http/
+│   ├── Controllers/              # web, auth и gateway
+│   ├── Controllers/Admin/        # JSON API
+│   ├── Middleware/               # admin и auth-feature проверки
+│   └── Requests/Admin/           # валидация мутаций
+├── Mcp/
+│   ├── Servers/
+│   ├── Tools/
+│   └── Resources/
+├── Models/
+└── Services/                     # MockHandler и ProxyHandler
+
+config/
+├── gateway.php
+└── mockwave.php                  # admin credentials и auth switches
+
+docker/
+├── caddy/Caddyfile
+├── nginx/default.conf
+├── php/
+└── scheduler/
+
+resources/js/
+├── Components/
+├── layouts/
+├── pages/
+└── types/
+
+routes/
+├── web.php
+├── api.php
+└── ai.php
+
+compose.production.yml
+docker-compose.yml
+Dockerfile
+```
 
 ## Лицензия
 
-MIT © 2024 Mockwave Contributors
+MIT © Mockwave Contributors
