@@ -8,6 +8,7 @@
         "guzzlehttp/guzzle": "^7.10",
         "inertiajs/inertia-laravel": "^3.0",
         "laravel/framework": "^13.0",
+        "laravel/mcp": "^0.7",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^3.0",
         "tightenco/ziggy": "^2.6"
