@@ -7,19 +7,10 @@ use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
-use Laravel\Mcp\Server\Tool;
 
 #[Description('Switch a service between mock and proxy mode.')]
-class SwitchModeTool extends Tool
+class SwitchModeTool extends AdminTool
 {
-    /**
-     * Destructive tool — only admins may switch modes.
-     */
-    public function shouldRegister(): bool
-    {
-        return auth()->user()?->isAdmin() ?? false;
-    }
-
     public function handle(Request $request): Response
     {
         $slug = $request->get('slug');
