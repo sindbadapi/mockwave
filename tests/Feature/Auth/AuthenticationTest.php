@@ -4,6 +4,7 @@ namespace Tests\Feature\Auth;
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AuthenticationTest extends TestCase
@@ -15,6 +16,17 @@ class AuthenticationTest extends TestCase
         $response = $this->get('/login');
 
         $response->assertStatus(200);
+    }
+
+    public function test_password_reset_link_is_hidden_when_feature_is_disabled(): void
+    {
+        config(['mockwave.auth.password_reset' => false]);
+
+        $this->get('/login')->assertInertia(
+            fn (Assert $page) => $page
+                ->component('Auth/Login')
+                ->where('canResetPassword', false)
+        );
     }
 
     public function test_users_can_authenticate_using_the_login_screen(): void

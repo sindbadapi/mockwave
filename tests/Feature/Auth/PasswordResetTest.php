@@ -70,4 +70,25 @@ class PasswordResetTest extends TestCase
             return true;
         });
     }
+
+    public function test_password_reset_can_be_disabled(): void
+    {
+        Notification::fake();
+
+        $user = User::factory()->create();
+
+        config(['mockwave.auth.password_reset' => false]);
+
+        $this->get('/forgot-password')->assertNotFound();
+        $this->post('/forgot-password', ['email' => $user->email])->assertNotFound();
+        $this->get('/reset-password/token')->assertNotFound();
+        $this->post('/reset-password', [
+            'token' => 'token',
+            'email' => $user->email,
+            'password' => 'new-password',
+            'password_confirmation' => 'new-password',
+        ])->assertNotFound();
+
+        Notification::assertNothingSent();
+    }
 }
