@@ -41,7 +41,9 @@ class CreateServiceTool extends AdminTool
             'slug' => $service->slug,
             'mode' => $service->mode,
             'isActive' => $service->is_active,
-            'gatewayPrefix' => "/gateway/{$service->slug}",
+            'gatewayPrefix' => $service->gatewayPathPrefix(),
+            'gatewayBaseUri' => $service->gatewayBaseUri(),
+            'gatewayClientHint' => 'Use gatewayBaseUri as Guzzle base_uri and send endpoint paths without a leading slash.',
         ]);
     }
 

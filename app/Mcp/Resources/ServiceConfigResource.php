@@ -26,6 +26,11 @@ class ServiceConfigResource extends Resource implements HasUriTemplate
             ->where('slug', $request->get('slug'))
             ->firstOrFail();
 
-        return Response::text((string) json_encode($service->toArray(), JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
+        return Response::text((string) json_encode([
+            ...$service->toArray(),
+            'gateway_prefix' => $service->gatewayPathPrefix(),
+            'gateway_base_uri' => $service->gatewayBaseUri(),
+            'gateway_client_hint' => 'Use gateway_base_uri as Guzzle base_uri and send endpoint paths without a leading slash.',
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
 }

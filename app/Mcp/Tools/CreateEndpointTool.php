@@ -55,7 +55,10 @@ class CreateEndpointTool extends AdminTool
             'path' => $endpoint->path,
             'resolvedMode' => $endpoint->resolvedMode(),
             'isActive' => $endpoint->is_active,
-            'gatewayUrl' => "/gateway/{$service->slug}".($endpoint->path === '/' ? '' : $endpoint->path),
+            'gatewayUrl' => $service->gatewayPathPrefix().($endpoint->path === '/' ? '' : $endpoint->path),
+            'gatewayBaseUri' => $service->gatewayBaseUri(),
+            'relativeClientPath' => ltrim($endpoint->path, '/'),
+            'gatewayClientHint' => 'Use gatewayBaseUri as Guzzle base_uri and send relativeClientPath without a leading slash.',
         ]);
     }
 

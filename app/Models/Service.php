@@ -32,4 +32,14 @@ class Service extends Model
     {
         return $this->hasMany(Endpoint::class);
     }
+
+    public function gatewayPathPrefix(): string
+    {
+        return "/gateway/{$this->slug}";
+    }
+
+    public function gatewayBaseUri(): string
+    {
+        return url($this->gatewayPathPrefix()).'/';
+    }
 }
