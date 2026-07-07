@@ -10,6 +10,9 @@ export interface Service {
     name:            string
     slug:            string
     base_url:        string | null
+    gateway_prefix:  string
+    gateway_base_uri: string
+    gateway_client_hint: string
     description:     string | null
     mode:            ServiceMode
     is_active:       boolean

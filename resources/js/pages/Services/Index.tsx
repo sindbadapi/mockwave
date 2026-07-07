@@ -75,7 +75,7 @@ export default function ServicesIndex({ services }: Props) {
                 <table className="w-full text-sm">
                     <thead className="bg-gray-50 border-b border-gray-200">
                         <tr>
-                            {['Name', 'Slug', 'Mode', 'Endpoints', 'Status', ''].map(h => (
+                            {['Name', 'Slug', 'Gateway Base URI', 'Mode', 'Endpoints', 'Status', ''].map(h => (
                                 <th key={h} className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{h}</th>
                             ))}
                         </tr>
@@ -86,6 +86,11 @@ export default function ServicesIndex({ services }: Props) {
                                 <td className="px-4 py-3 font-medium text-gray-900">{s.name}</td>
                                 <td className="px-4 py-3">
                                     <code className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{s.slug}</code>
+                                </td>
+                                <td className="px-4 py-3 max-w-xs">
+                                    <code className="block text-xs bg-gray-100 px-1.5 py-0.5 rounded truncate" title={s.gateway_client_hint}>
+                                        {s.gateway_base_uri}
+                                    </code>
                                 </td>
                                 <td className="px-4 py-3">
                                     <span className={s.mode === 'mock' ? 'badge-mock' : 'badge-proxy'}>{s.mode}</span>
@@ -111,7 +116,7 @@ export default function ServicesIndex({ services }: Props) {
                             </tr>
                         ))}
                         {services.data.length === 0 && (
-                            <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No services yet.</td></tr>
+                            <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No services yet.</td></tr>
                         )}
                     </tbody>
                 </table>

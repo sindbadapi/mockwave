@@ -79,7 +79,9 @@ class McpToolsTest extends TestCase
                 'description' => 'Payment provider mocks',
             ])
             ->assertOk()
-            ->assertSee('payments-api');
+            ->assertSee('payments-api')
+            ->assertSee('gatewayBaseUri')
+            ->assertSee('without a leading slash');
 
         $service = Service::where('slug', 'payments-api')->firstOrFail();
 
@@ -100,7 +102,9 @@ class McpToolsTest extends TestCase
                 'path' => '/v1/payments',
             ])
             ->assertOk()
-            ->assertSee('/gateway/payments-api/v1/payments');
+            ->assertSee('/gateway/payments-api/v1/payments')
+            ->assertSee('relativeClientPath')
+            ->assertSee('v1/payments');
 
         $endpoint = Endpoint::whereBelongsTo($service)->firstOrFail();
 
@@ -229,6 +233,8 @@ class McpToolsTest extends TestCase
         $response = (new ServiceConfigResource)->handle(new Request(['slug' => 'bank-api']));
 
         $this->assertStringContainsString('/v1/accounts', (string) $response->content());
+        $this->assertStringContainsString('/gateway/bank-api/', (string) $response->content());
+        $this->assertStringContainsString('without a leading slash', (string) $response->content());
     }
 
     private function adminWithWriteToken(): User
