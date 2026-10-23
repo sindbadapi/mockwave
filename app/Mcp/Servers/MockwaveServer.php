@@ -18,7 +18,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 
 #[Name('Mockwave')]
-#[Version('0.1.1')]
+#[Version('0.1.2')]
 #[Instructions('Inspect and manage mock services. Administrators can create services and endpoints, configure mock responses, and switch mock/proxy mode.')]
 class MockwaveServer extends Server
 {

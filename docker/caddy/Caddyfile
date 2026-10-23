@@ -3,6 +3,10 @@
 
 	encode zstd gzip
 
+	request_body {
+		max_size 32MB
+	}
+
 	php_fastcgi app:9000
 	file_server
 

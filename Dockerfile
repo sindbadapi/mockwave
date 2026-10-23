@@ -18,7 +18,9 @@ RUN npm run build
 # ─────────────────────────────────────────────────────────────────────────────
 # Stage 2: PHP base — shared extensions and config
 # ─────────────────────────────────────────────────────────────────────────────
-FROM php:8.5-fpm-alpine AS php_base
+FROM php:8.5.12-fpm-alpine AS php_base
+
+COPY docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
 
 # Build tools + runtime dependencies
 # $PHPIZE_DEPS includes: autoconf, gcc, g++, make, pkgconf, re2c, etc.
@@ -92,6 +94,8 @@ USER appuser
 # Stage 4: production — bakes source + assets into the image
 # ─────────────────────────────────────────────────────────────────────────────
 FROM php_base AS production
+
+RUN cp "$PHP_INI_DIR/php.ini-production" "$PHP_INI_DIR/php.ini"
 
 # Copy application code
 COPY . /var/www
